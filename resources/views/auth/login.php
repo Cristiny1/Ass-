@@ -54,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         body {
             font-family: Arial, sans-serif;
-            background-image: url("../image/login_bg"); /* make sure the path is correct, include extension .jpg/.png */
+            background-image: url("../image/login_bg.jpg"); /* make sure the path is correct, include extension .jpg/.png */
             background-size: cover;      /* makes image cover entire viewport */
             background-position: center; /* centers the image */
             background-repeat: no-repeat;/* prevents tiling */
