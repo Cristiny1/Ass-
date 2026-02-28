@@ -1,5 +1,6 @@
 <?php
 // Admin Quiz Statistics Page
+session_start();
 
 if (!isset($_SESSION['admin'])) {
     header('Location: /login');

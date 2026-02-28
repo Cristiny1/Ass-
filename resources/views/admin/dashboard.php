@@ -1,198 +1,71 @@
 <?php
 session_start();
 
-// ---------- LOGOUT ----------
-if (isset($_GET['logout'])) {
-    session_destroy();
-    header('Location: ../auth/login.php');
-    exit();
-}
-
-// ---------- SESSION & ROLE CHECK ----------
+// Check if user is authenticated
 if (!isset($_SESSION['user_id'])) {
-    $_SESSION['error'] = "Please log in first!";
-    header('Location: ../auth/login.php');
-    exit();
-}
-
-$userRole = $_SESSION['role'] ?? '';
-
-if (!in_array($userRole, ['admin', 'teacher'])) {
-    $_SESSION['error'] = "Unauthorized access!";
     header('Location: /login.php');
     exit();
 }
 
-// Demo data arrays
-$allQuizzes = [
-    [
-        'id' => 1,
-        'title' => 'Mathematics 101',
-        'creator' => 'John Smith',
-        'category' => 'Mathematics',
-        'attempts' => 45,
-        'avg_score' => 78.5,
-        'duration' => 30,
-        'questions' => 20,
-        'status' => 'active',
-        'created_at' => '2024-01-10',
-        'difficulty' => 'Beginner'
-    ],
-    [
-        'id' => 2,
-        'title' => 'Physics Fundamentals',
-        'creator' => 'Sarah Johnson',
-        'category' => 'Physics',
-        'attempts' => 38,
-        'avg_score' => 72.3,
-        'duration' => 45,
-        'questions' => 25,
-        'status' => 'active',
-        'created_at' => '2024-01-12',
-        'difficulty' => 'Intermediate'
-    ],
-    [
-        'id' => 3,
-        'title' => 'Chemistry Basics',
-        'creator' => 'Mike Wilson',
-        'category' => 'Chemistry',
-        'attempts' => 32,
-        'avg_score' => 81.0,
-        'duration' => 40,
-        'questions' => 30,
-        'status' => 'draft',
-        'created_at' => '2024-01-15',
-        'difficulty' => 'Beginner'
-    ],
-    [
-        'id' => 4,
-        'title' => 'English Literature',
-        'creator' => 'Emma Davis',
-        'category' => 'English',
-        'attempts' => 28,
-        'avg_score' => 85.2,
-        'duration' => 35,
-        'questions' => 25,
-        'status' => 'active',
-        'created_at' => '2024-01-14',
-        'difficulty' => 'Advanced'
-    ],
-    [
-        'id' => 5,
-        'title' => 'World History',
-        'creator' => 'Robert Brown',
-        'category' => 'History',
-        'attempts' => 25,
-        'avg_score' => 69.8,
-        'duration' => 50,
-        'questions' => 40,
-        'status' => 'archived',
-        'created_at' => '2024-01-08',
-        'difficulty' => 'Intermediate'
-    ],
-    [
-        'id' => 6,
-        'title' => 'Computer Science',
-        'creator' => 'Lisa Anderson',
-        'category' => 'Technology',
-        'attempts' => 42,
-        'avg_score' => 76.4,
-        'duration' => 60,
-        'questions' => 35,
-        'status' => 'active',
-        'created_at' => '2024-01-13',
-        'difficulty' => 'Intermediate'
-    ],
-    [
-        'id' => 7,
-        'title' => 'Biology: Cell Structure',
-        'creator' => 'David Lee',
-        'category' => 'Biology',
-        'attempts' => 22,
-        'avg_score' => 88.5,
-        'duration' => 35,
-        'questions' => 18,
-        'status' => 'active',
-        'created_at' => '2024-01-15',
-        'difficulty' => 'Beginner'
-    ],
-    [
-        'id' => 8,
-        'title' => 'Spanish Vocabulary',
-        'creator' => 'Maria Garcia',
-        'category' => 'Languages',
-        'attempts' => 35,
-        'avg_score' => 82.5,
-        'duration' => 25,
-        'questions' => 50,
-        'status' => 'draft',
-        'created_at' => '2024-01-14',
-        'difficulty' => 'Beginner'
-    ],
-    [
-        'id' => 9,
-        'title' => 'Environmental Science',
-        'creator' => 'James Taylor',
-        'category' => 'Science',
-        'attempts' => 18,
-        'avg_score' => 74.5,
-        'duration' => 40,
-        'questions' => 22,
-        'status' => 'active',
-        'created_at' => '2024-01-13',
-        'difficulty' => 'Intermediate'
-    ],
-    [
-        'id' => 10,
-        'title' => 'Art History',
-        'creator' => 'Patricia White',
-        'category' => 'Arts',
-        'attempts' => 15,
-        'avg_score' => 91.0,
-        'duration' => 30,
-        'questions' => 25,
-        'status' => 'active',
-        'created_at' => '2024-01-12',
-        'difficulty' => 'Advanced'
-    ],
-    [
-        'id' => 11,
-        'title' => 'Advanced Calculus',
-        'creator' => 'John Smith',
-        'category' => 'Mathematics',
-        'attempts' => 12,
-        'avg_score' => 68.5,
-        'duration' => 60,
-        'questions' => 30,
-        'status' => 'draft',
-        'created_at' => '2024-01-11',
-        'difficulty' => 'Advanced'
-    ],
-    [
-        'id' => 12,
-        'title' => 'Organic Chemistry',
-        'creator' => 'Mike Wilson',
-        'category' => 'Chemistry',
-        'attempts' => 20,
-        'avg_score' => 71.5,
-        'duration' => 55,
-        'questions' => 35,
-        'status' => 'active',
-        'created_at' => '2024-01-10',
-        'difficulty' => 'Advanced'
-    ]
+// Handle logout
+if (isset($_GET['logout'])) {
+    session_destroy();
+    header('Location: /login.php');
+    exit();
+}
+
+// Redirect if not logged in
+if (!isset($_SESSION['user_id'], $_SESSION['role'])) {
+    header("Location: /login.php");
+    exit();
+}
+
+$userRole = $_SESSION['role']; // trust session only
+// $currentPage = $_GET['page'] ?? 'dashboard';
+
+// Validate page input (prevent injection / invalid page names)
+$allowedPages = ['dashboard', 'users', 'quizzes', 'reports', 'settings'];
+if (!in_array($currentPage, $allowedPages)) {
+    $currentPage = 'dashboard';
+}
+
+// Role-based title
+switch ($userRole) {
+    case 'admin':
+        $dashboardTitle = 'Admin Panel';
+        break;
+    case 'teacher':
+        $dashboardTitle = 'Teacher Dashboard';
+        break;
+    default:
+        $dashboardTitle = 'Student Dashboard';
+}
+
+
+// Only admins and teachers may access this dashboard
+if (!in_array($userRole, ['admin', 'teacher'])) {
+    header('Location: /login.php');
+    exit();
+}
+
+// Placeholder data — replace with real DB queries
+$stats = [
+    'total_quizzes'   => 24,
+    'total_users'     => 138,
+    'total_attempts'  => 512,
+    'avg_score'       => 74,
 ];
 
-$categories = ['All Categories', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'History', 'English', 'Technology', 'Languages', 'Arts', 'Science'];
-$difficultyLevels = ['All Levels', 'Beginner', 'Intermediate', 'Advanced'];
-$statusTypes = ['All Status', 'Active', 'Draft', 'Archived'];
-
-$dashboardTitle = ucfirst($userRole) . " Dashboard";
-
-// Get current page from URL parameter, default to dashboard
-$currentPage = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
+$allQuizzes = [
+    ['id' => 1, 'title' => 'PHP Basics',      'creator' => 'Admin',   'category' => 'Programming', 'difficulty' => 'Beginner',     'questions' => 10, 'attempts' => 45, 'avg_score' => 82, 'status' => 'active',   'created_at' => '2025-01-15'],
+    ['id' => 2, 'title' => 'Web Security',    'creator' => 'Teacher1','category' => 'Security',    'difficulty' => 'Advanced',     'questions' => 15, 'attempts' => 30, 'avg_score' => 58, 'status' => 'active',   'created_at' => '2025-02-01'],
+    ['id' => 3, 'title' => 'SQL Fundamentals','creator' => 'Teacher2','category' => 'Database',    'difficulty' => 'Intermediate', 'questions' => 12, 'attempts' => 67, 'avg_score' => 71, 'status' => 'draft',    'created_at' => '2025-02-10'],
+    ['id' => 4, 'title' => 'HTML & CSS',      'creator' => 'Admin',   'category' => 'Web Dev',     'difficulty' => 'Beginner',     'questions' =>  8, 'attempts' => 90, 'avg_score' => 88, 'status' => 'active',   'created_at' => '2025-02-18'],
+    ['id' => 5, 'title' => 'JavaScript ES6',  'creator' => 'Teacher1','category' => 'Programming', 'difficulty' => 'Intermediate', 'questions' => 20, 'attempts' => 22, 'avg_score' => 65, 'status' => 'archived', 'created_at' => '2025-02-20'],
+];
 ?>
-<!DOCTYPE html>
+
+
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -679,7 +552,6 @@ body {
                 <div class="col">
                     <h1>
                         <i class="fas fa-hand-wave me-2"></i>
-                        Welcome back, <?= htmlspecialchars($_SESSION['username'] ?? ucfirst($userRole)) ?>!
                     </h1>
                     <p>Here's what's happening with your quizzes today.</p>
                 </div>
