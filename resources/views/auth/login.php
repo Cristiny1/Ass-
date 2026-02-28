@@ -10,8 +10,8 @@ if (isset($_GET['logout'])) {
 
 // Handle login POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $_POST['username'] ?? '';
-    $password = $_POST['password'] ?? '';
+    // $username = $_POST['username'] ?? '';
+    // $password = $_POST['password'] ?? '';
 
     // Example: Replace with your actual DB check
     if ($username === 'rorn' && $password === 'admin123') {
@@ -46,6 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Online Quiz System</title>
+    
     <style>
         * {
             margin: 0;
@@ -54,11 +55,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         body {
             font-family: Arial, sans-serif;
-            background-image: url("../image/login_bg"); /* make sure the path is correct, include extension .jpg/.png */
-            background-size: cover;      /* makes image cover entire viewport */
-            background-position: center; /* centers the image */
-            background-repeat: no-repeat;/* prevents tiling */
-            background-attachment: fixed;/* optional: keeps image fixed while scrolling */
+            background-image: url("../../views/image/login_bg.jpg");
+            background-size: cover;
+            background-position: center;
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -66,36 +65,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .login-container {
-            background: rgba(245, 245, 245, 0.5);
+            background:  rgba(255, 255, 255, 0.3); /* Transparent Whitesmoke */
             padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
             width: 100%;
             max-width: 400px;
-            max-height: 500px;
         }
-        h2 {
-            
+
+        .login-container img {
+        display: block;
+        margin: 0 auto 20px;
+        width: 80px;
+        }
+
+        h1 {
             text-align: center;
-            margin-bottom: 10px;
-            color: #000000;
+            margin-bottom: 30px;
+            color: blue;
         }
         .form-group {
             margin-bottom: 20px;
         }
         label {
             display: block;
+            border-radius: 20px;
             margin-bottom: 8px;
-            color: #030303;
+            color: #555;
             font-weight: bold;
         }
         input[type="username"],
         input[type="password"] {
             width: 100%;
-            background: rgb(233, 232, 232,0.7);
-            padding: 10px;
-            border: 1px solid #757575;
-            border-radius: 25px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
             font-size: 14px;
             transition: border-color 0.3s;
         }
@@ -105,8 +109,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-color: #667eea;
         }
         button {
-            width: 80px;
-            padding: 9px;
+            width: 100px;
+            padding: 12px;
             background: #667eea;
             color: white;
             border: none;
@@ -118,8 +122,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             justify-content: center;
             display: flex;
             margin: 0 auto;
-            margin-top: 40px;
-           
         }
         button:hover {
             background: #23ee67;
@@ -134,12 +136,91 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-size: 14px;
             margin-bottom: 15px;
         }
+     * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background-image: url("../image/login_bg.jpg");
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+        }
+        .login-container {
+            background: transparent whitesmoke;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: bold;
+        }
+        input[type="username"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        input[type="username"]:focus,
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            width: 100px;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+            justify-content: center;
+            display: flex;
+            margin: 0 auto;
+        }
+        button:hover {
+            background: #23ee67;
+        }
+        .error {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .success {
+            color: #27ae60;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
     </style>
 </head>
 <body>
     <div class="login-container">
-        <img src="../image/1" alt="" style="display: block; margin: 0 auto 20px; width: 80px;">
-        <h2>Online Quiz System</h2>
+        <img src="../image/1.png" alt="">
+        <h1>Online Quiz System</h1>
         
         <?php if (isset($_SESSION['error'])): ?>
             <div class="error"><?php echo $_SESSION['error']; unset($_SESSION['error']); ?></div>
