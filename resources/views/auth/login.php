@@ -55,9 +55,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         body {
             font-family: Arial, sans-serif;
+<<<<<<< HEAD
             background-image: url("../../views/image/login_bg.jpg");
             background-size: cover;
             background-position: center;
+=======
+            background-image: url("../image/login_bg.jpg"); /* make sure the path is correct, include extension .jpg/.png */
+            background-size: cover;      /* makes image cover entire viewport */
+            background-position: center; /* centers the image */
+            background-repeat: no-repeat;/* prevents tiling */
+            background-attachment: fixed;/* optional: keeps image fixed while scrolling */
+>>>>>>> 759aa5d6ee9919d1eda12ddb3ef11280fe293b0a
             min-height: 100vh;
             display: flex;
             justify-content: center;
