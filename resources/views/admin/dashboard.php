@@ -1,71 +1,166 @@
 <?php
 session_start();
+require_once __DIR__ . '../../../../config/database.php';
 
-// Check if user is authenticated
-if (!isset($_SESSION['user_id'])) {
-    header('Location: /login.php');
-    exit();
-}
-
-// Handle logout
+// -----------------------
+// LOGOUT HANDLING
+// -----------------------
 if (isset($_GET['logout'])) {
     session_destroy();
-    header('Location: /login.php');
+    header('Location: login.php');
     exit();
 }
 
-// Redirect if not logged in
-if (!isset($_SESSION['user_id'], $_SESSION['role'])) {
-    header("Location: /login.php");
+// -----------------------
+// LOGIN CHECK
+// -----------------------
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
     exit();
 }
 
-$userRole = $_SESSION['role']; // trust session only
-// $currentPage = $_GET['page'] ?? 'dashboard';
+$userId = $_SESSION['user_id'];
+$userRole = $_SESSION['role'] == 'admin';
+$currentPage = $_GET['page'] == 'dashboard';
 
-// Validate page input (prevent injection / invalid page names)
-$allowedPages = ['dashboard', 'users', 'quizzes', 'reports', 'settings'];
-if (!in_array($currentPage, $allowedPages)) {
-    $currentPage = 'dashboard';
+// -----------------------
+// PAGE TITLE
+// -----------------------
+$dashboardTitle = $userRole === 'admin' ? 'Admin Panel' : 'Teacher Dashboard';
+
+// -----------------------
+// ALLOWED PAGES
+// -----------------------
+$allowedPages = ['dashboard','quizzes','create_quiz','myquizzes','students','results','settings','users','departments','reports'];
+if (!in_array($currentPage, $allowedPages)) $currentPage = 'dashboard';
+
+// -----------------------
+// FILTER DATA
+// -----------------------
+$categories = ['All Categories','Programming','Security','Database','Web Development'];
+$difficultyLevels = ['All Levels','Beginner','Intermediate','Advanced'];
+$statusTypes = ['All Status','Active','Draft','Archived'];
+
+// -----------------------
+// FETCH STATISTICS
+// -----------------------
+try {
+    // Get user statistics
+    if ($userRole === 'admin') {
+        // Admin stats
+        $stmt = $pdo->query("SELECT COUNT(*) as total FROM users");
+        $totalUsers = $stmt->fetch()['total'];
+        
+        $stmt = $pdo->query("SELECT COUNT(*) as total FROM quizzes");
+        $totalQuizzes = $stmt->fetch()['total'];
+        
+        $stmt = $pdo->query("SELECT COUNT(*) as total FROM quizzes WHERE status = 'draft'");
+        $pendingReviews = $stmt->fetch()['total'];
+        
+        $stmt = $pdo->query("SELECT COUNT(*) as total FROM departments");
+        $totalDepartments = $stmt->fetch()['total'];
+    } else {
+        // Teacher stats
+        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM quizzes WHERE creator_id = ?");
+        $stmt->execute([$userId]);
+        $myQuizzes = $stmt->fetch()['total'];
+        
+        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM attempts a JOIN quizzes q ON a.quiz_id = q.id WHERE q.creator_id = ?");
+        $stmt->execute([$userId]);
+        $totalAttempts = $stmt->fetch()['total'];
+        
+        $stmt = $pdo->prepare("SELECT AVG(score) as avg FROM attempts a JOIN quizzes q ON a.quiz_id = q.id WHERE q.creator_id = ?");
+        $stmt->execute([$userId]);
+        $avgScore = round($stmt->fetch()['avg'] ?? 0, 1);
+        
+        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM quizzes WHERE creator_id = ? AND status = 'draft'");
+        $stmt->execute([$userId]);
+        $pendingTeacherReviews = $stmt->fetch()['total'];
+    }
+    
+    // Weekly trends
+    if ($userRole === 'teacher') {
+        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM quizzes WHERE creator_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
+        $stmt->execute([$userId]);
+        $weeklyQuizzes = $stmt->fetch()['total'];
+    }
+    
+} catch (Exception $e) {
+    error_log("Stats fetch failed: " . $e->getMessage());
 }
 
-// Role-based title
-switch ($userRole) {
-    case 'admin':
-        $dashboardTitle = 'Admin Panel';
-        break;
-    case 'teacher':
-        $dashboardTitle = 'Teacher Dashboard';
-        break;
-    default:
-        $dashboardTitle = 'Student Dashboard';
+// -----------------------
+// FETCH QUIZZES WITH ALL NEEDED DATA
+// -----------------------
+try {
+    $page = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
+    $limit = 10;
+    $offset = ($page - 1) * $limit;
+    
+    if ($userRole === 'teacher' && ($currentPage === 'myquizzes' || $currentPage === 'dashboard')) {
+        $countStmt = $pdo->prepare("SELECT COUNT(*) as total FROM quizzes WHERE creator_id = ?");
+        $countStmt->execute([$userId]);
+        $totalRecords = $countStmt->fetch()['total'];
+        
+        $stmt = $pdo->prepare("SELECT 
+            q.*, 
+            u.username AS creator,
+            (SELECT COUNT(*) FROM questions WHERE quiz_id = q.id) as questions_count,
+            (SELECT COUNT(*) FROM attempts WHERE quiz_id = q.id) as attempts_count,
+            (SELECT COALESCE(AVG(score), 0) FROM attempts WHERE quiz_id = q.id) as average_score
+            FROM quizzes q 
+            JOIN users u ON q.creator_id = u.id
+            WHERE q.creator_id = :uid
+            ORDER BY q.created_at DESC
+            LIMIT :limit OFFSET :offset");
+        
+        $stmt->bindValue(':uid', $userId, PDO::PARAM_INT);
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+    } else {
+        $countStmt = $pdo->query("SELECT COUNT(*) as total FROM quizzes");
+        $totalRecords = $countStmt->fetch()['total'];
+        
+        $stmt = $pdo->prepare("SELECT 
+            q.*, 
+            u.username AS creator,
+            (SELECT COUNT(*) FROM questions WHERE quiz_id = q.id) as questions_count,
+            (SELECT COUNT(*) FROM attempts WHERE quiz_id = q.id) as attempts_count,
+            (SELECT COALESCE(AVG(score), 0) FROM attempts WHERE quiz_id = q.id) as average_score
+            FROM quizzes q 
+            JOIN users u ON q.creator_id = u.id
+            ORDER BY q.created_at DESC
+            LIMIT :limit OFFSET :offset");
+        
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+    }
+    
+    $allQuizzes = $stmt->fetchAll();
+    $totalPages = ceil($totalRecords / $limit);
+    
+} catch (Exception $e) {
+    $allQuizzes = [];
+    $totalPages = 0;
+    error_log("Failed to fetch quizzes: " . $e->getMessage());
 }
 
-
-// Only admins and teachers may access this dashboard
-if (!in_array($userRole, ['admin', 'teacher'])) {
-    header('Location: /login.php');
-    exit();
+// -----------------------
+// FETCH CATEGORY STATISTICS
+// -----------------------
+try {
+    $catStmt = $pdo->query("SELECT category, COUNT(*) as count FROM quizzes GROUP BY category");
+    $categoryStats = $catStmt->fetchAll();
+    $totalQuizCount = array_sum(array_column($categoryStats, 'count'));
+} catch (Exception $e) {
+    $categoryStats = [];
+    $totalQuizCount = 0;
 }
-
-// Placeholder data — replace with real DB queries
-$stats = [
-    'total_quizzes'   => 24,
-    'total_users'     => 138,
-    'total_attempts'  => 512,
-    'avg_score'       => 74,
-];
-
-$allQuizzes = [
-    ['id' => 1, 'title' => 'PHP Basics',      'creator' => 'Admin',   'category' => 'Programming', 'difficulty' => 'Beginner',     'questions' => 10, 'attempts' => 45, 'avg_score' => 82, 'status' => 'active',   'created_at' => '2025-01-15'],
-    ['id' => 2, 'title' => 'Web Security',    'creator' => 'Teacher1','category' => 'Security',    'difficulty' => 'Advanced',     'questions' => 15, 'attempts' => 30, 'avg_score' => 58, 'status' => 'active',   'created_at' => '2025-02-01'],
-    ['id' => 3, 'title' => 'SQL Fundamentals','creator' => 'Teacher2','category' => 'Database',    'difficulty' => 'Intermediate', 'questions' => 12, 'attempts' => 67, 'avg_score' => 71, 'status' => 'draft',    'created_at' => '2025-02-10'],
-    ['id' => 4, 'title' => 'HTML & CSS',      'creator' => 'Admin',   'category' => 'Web Dev',     'difficulty' => 'Beginner',     'questions' =>  8, 'attempts' => 90, 'avg_score' => 88, 'status' => 'active',   'created_at' => '2025-02-18'],
-    ['id' => 5, 'title' => 'JavaScript ES6',  'creator' => 'Teacher1','category' => 'Programming', 'difficulty' => 'Intermediate', 'questions' => 20, 'attempts' => 22, 'avg_score' => 65, 'status' => 'archived', 'created_at' => '2025-02-20'],
-];
 ?>
 
-
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -552,6 +647,7 @@ body {
                 <div class="col">
                     <h1>
                         <i class="fas fa-hand-wave me-2"></i>
+                        Welcome back, <?= htmlspecialchars($_SESSION['username'] ?? ucfirst($userRole)) ?>!
                     </h1>
                     <p>Here's what's happening with your quizzes today.</p>
                 </div>
