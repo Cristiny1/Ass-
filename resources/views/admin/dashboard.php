@@ -1,197 +1,165 @@
 <?php
 session_start();
+require_once __DIR__ . '../../../../config/database.php';
 
-// ---------- LOGOUT ----------
+// -----------------------
+// LOGOUT HANDLING
+// -----------------------
 if (isset($_GET['logout'])) {
     session_destroy();
-    header('Location: ../auth/login.php');
+    header('Location: login.php');
     exit();
 }
 
-// ---------- SESSION & ROLE CHECK ----------
+// -----------------------
+// LOGIN CHECK
+// -----------------------
 if (!isset($_SESSION['user_id'])) {
-    $_SESSION['error'] = "Please log in first!";
-    header('Location: ../auth/login.php');
+    header('Location: login.php');
     exit();
 }
 
-$userRole = $_SESSION['role'] ?? '';
+$userId = $_SESSION['user_id'];
+$userRole = $_SESSION['role'] == 'admin';
+$currentPage = $_GET['page'] == 'dashboard';
 
-if (!in_array($userRole, ['admin', 'teacher'])) {
-    $_SESSION['error'] = "Unauthorized access!";
-    header('Location: /login.php');
-    exit();
+// -----------------------
+// PAGE TITLE
+// -----------------------
+$dashboardTitle = $userRole === 'admin' ? 'Admin Panel' : 'Teacher Dashboard';
+
+// -----------------------
+// ALLOWED PAGES
+// -----------------------
+$allowedPages = ['dashboard','quizzes','create_quiz','myquizzes','students','results','settings','users','departments','reports'];
+if (!in_array($currentPage, $allowedPages)) $currentPage = 'dashboard';
+
+// -----------------------
+// FILTER DATA
+// -----------------------
+$categories = ['All Categories','Programming','Security','Database','Web Development'];
+$difficultyLevels = ['All Levels','Beginner','Intermediate','Advanced'];
+$statusTypes = ['All Status','Active','Draft','Archived'];
+
+// -----------------------
+// FETCH STATISTICS
+// -----------------------
+try {
+    // Get user statistics
+    if ($userRole === 'admin') {
+        // Admin stats
+        $stmt = $pdo->query("SELECT COUNT(*) as total FROM users");
+        $totalUsers = $stmt->fetch()['total'];
+        
+        $stmt = $pdo->query("SELECT COUNT(*) as total FROM quizzes");
+        $totalQuizzes = $stmt->fetch()['total'];
+        
+        $stmt = $pdo->query("SELECT COUNT(*) as total FROM quizzes WHERE status = 'draft'");
+        $pendingReviews = $stmt->fetch()['total'];
+        
+        $stmt = $pdo->query("SELECT COUNT(*) as total FROM departments");
+        $totalDepartments = $stmt->fetch()['total'];
+    } else {
+        // Teacher stats
+        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM quizzes WHERE creator_id = ?");
+        $stmt->execute([$userId]);
+        $myQuizzes = $stmt->fetch()['total'];
+        
+        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM attempts a JOIN quizzes q ON a.quiz_id = q.id WHERE q.creator_id = ?");
+        $stmt->execute([$userId]);
+        $totalAttempts = $stmt->fetch()['total'];
+        
+        $stmt = $pdo->prepare("SELECT AVG(score) as avg FROM attempts a JOIN quizzes q ON a.quiz_id = q.id WHERE q.creator_id = ?");
+        $stmt->execute([$userId]);
+        $avgScore = round($stmt->fetch()['avg'] ?? 0, 1);
+        
+        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM quizzes WHERE creator_id = ? AND status = 'draft'");
+        $stmt->execute([$userId]);
+        $pendingTeacherReviews = $stmt->fetch()['total'];
+    }
+    
+    // Weekly trends
+    if ($userRole === 'teacher') {
+        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM quizzes WHERE creator_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
+        $stmt->execute([$userId]);
+        $weeklyQuizzes = $stmt->fetch()['total'];
+    }
+    
+} catch (Exception $e) {
+    error_log("Stats fetch failed: " . $e->getMessage());
 }
 
-// Demo data arrays
-$allQuizzes = [
-    [
-        'id' => 1,
-        'title' => 'Mathematics 101',
-        'creator' => 'John Smith',
-        'category' => 'Mathematics',
-        'attempts' => 45,
-        'avg_score' => 78.5,
-        'duration' => 30,
-        'questions' => 20,
-        'status' => 'active',
-        'created_at' => '2024-01-10',
-        'difficulty' => 'Beginner'
-    ],
-    [
-        'id' => 2,
-        'title' => 'Physics Fundamentals',
-        'creator' => 'Sarah Johnson',
-        'category' => 'Physics',
-        'attempts' => 38,
-        'avg_score' => 72.3,
-        'duration' => 45,
-        'questions' => 25,
-        'status' => 'active',
-        'created_at' => '2024-01-12',
-        'difficulty' => 'Intermediate'
-    ],
-    [
-        'id' => 3,
-        'title' => 'Chemistry Basics',
-        'creator' => 'Mike Wilson',
-        'category' => 'Chemistry',
-        'attempts' => 32,
-        'avg_score' => 81.0,
-        'duration' => 40,
-        'questions' => 30,
-        'status' => 'draft',
-        'created_at' => '2024-01-15',
-        'difficulty' => 'Beginner'
-    ],
-    [
-        'id' => 4,
-        'title' => 'English Literature',
-        'creator' => 'Emma Davis',
-        'category' => 'English',
-        'attempts' => 28,
-        'avg_score' => 85.2,
-        'duration' => 35,
-        'questions' => 25,
-        'status' => 'active',
-        'created_at' => '2024-01-14',
-        'difficulty' => 'Advanced'
-    ],
-    [
-        'id' => 5,
-        'title' => 'World History',
-        'creator' => 'Robert Brown',
-        'category' => 'History',
-        'attempts' => 25,
-        'avg_score' => 69.8,
-        'duration' => 50,
-        'questions' => 40,
-        'status' => 'archived',
-        'created_at' => '2024-01-08',
-        'difficulty' => 'Intermediate'
-    ],
-    [
-        'id' => 6,
-        'title' => 'Computer Science',
-        'creator' => 'Lisa Anderson',
-        'category' => 'Technology',
-        'attempts' => 42,
-        'avg_score' => 76.4,
-        'duration' => 60,
-        'questions' => 35,
-        'status' => 'active',
-        'created_at' => '2024-01-13',
-        'difficulty' => 'Intermediate'
-    ],
-    [
-        'id' => 7,
-        'title' => 'Biology: Cell Structure',
-        'creator' => 'David Lee',
-        'category' => 'Biology',
-        'attempts' => 22,
-        'avg_score' => 88.5,
-        'duration' => 35,
-        'questions' => 18,
-        'status' => 'active',
-        'created_at' => '2024-01-15',
-        'difficulty' => 'Beginner'
-    ],
-    [
-        'id' => 8,
-        'title' => 'Spanish Vocabulary',
-        'creator' => 'Maria Garcia',
-        'category' => 'Languages',
-        'attempts' => 35,
-        'avg_score' => 82.5,
-        'duration' => 25,
-        'questions' => 50,
-        'status' => 'draft',
-        'created_at' => '2024-01-14',
-        'difficulty' => 'Beginner'
-    ],
-    [
-        'id' => 9,
-        'title' => 'Environmental Science',
-        'creator' => 'James Taylor',
-        'category' => 'Science',
-        'attempts' => 18,
-        'avg_score' => 74.5,
-        'duration' => 40,
-        'questions' => 22,
-        'status' => 'active',
-        'created_at' => '2024-01-13',
-        'difficulty' => 'Intermediate'
-    ],
-    [
-        'id' => 10,
-        'title' => 'Art History',
-        'creator' => 'Patricia White',
-        'category' => 'Arts',
-        'attempts' => 15,
-        'avg_score' => 91.0,
-        'duration' => 30,
-        'questions' => 25,
-        'status' => 'active',
-        'created_at' => '2024-01-12',
-        'difficulty' => 'Advanced'
-    ],
-    [
-        'id' => 11,
-        'title' => 'Advanced Calculus',
-        'creator' => 'John Smith',
-        'category' => 'Mathematics',
-        'attempts' => 12,
-        'avg_score' => 68.5,
-        'duration' => 60,
-        'questions' => 30,
-        'status' => 'draft',
-        'created_at' => '2024-01-11',
-        'difficulty' => 'Advanced'
-    ],
-    [
-        'id' => 12,
-        'title' => 'Organic Chemistry',
-        'creator' => 'Mike Wilson',
-        'category' => 'Chemistry',
-        'attempts' => 20,
-        'avg_score' => 71.5,
-        'duration' => 55,
-        'questions' => 35,
-        'status' => 'active',
-        'created_at' => '2024-01-10',
-        'difficulty' => 'Advanced'
-    ]
-];
+// -----------------------
+// FETCH QUIZZES WITH ALL NEEDED DATA
+// -----------------------
+try {
+    $page = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
+    $limit = 10;
+    $offset = ($page - 1) * $limit;
+    
+    if ($userRole === 'teacher' && ($currentPage === 'myquizzes' || $currentPage === 'dashboard')) {
+        $countStmt = $pdo->prepare("SELECT COUNT(*) as total FROM quizzes WHERE creator_id = ?");
+        $countStmt->execute([$userId]);
+        $totalRecords = $countStmt->fetch()['total'];
+        
+        $stmt = $pdo->prepare("SELECT 
+            q.*, 
+            u.username AS creator,
+            (SELECT COUNT(*) FROM questions WHERE quiz_id = q.id) as questions_count,
+            (SELECT COUNT(*) FROM attempts WHERE quiz_id = q.id) as attempts_count,
+            (SELECT COALESCE(AVG(score), 0) FROM attempts WHERE quiz_id = q.id) as average_score
+            FROM quizzes q 
+            JOIN users u ON q.creator_id = u.id
+            WHERE q.creator_id = :uid
+            ORDER BY q.created_at DESC
+            LIMIT :limit OFFSET :offset");
+        
+        $stmt->bindValue(':uid', $userId, PDO::PARAM_INT);
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+    } else {
+        $countStmt = $pdo->query("SELECT COUNT(*) as total FROM quizzes");
+        $totalRecords = $countStmt->fetch()['total'];
+        
+        $stmt = $pdo->prepare("SELECT 
+            q.*, 
+            u.username AS creator,
+            (SELECT COUNT(*) FROM questions WHERE quiz_id = q.id) as questions_count,
+            (SELECT COUNT(*) FROM attempts WHERE quiz_id = q.id) as attempts_count,
+            (SELECT COALESCE(AVG(score), 0) FROM attempts WHERE quiz_id = q.id) as average_score
+            FROM quizzes q 
+            JOIN users u ON q.creator_id = u.id
+            ORDER BY q.created_at DESC
+            LIMIT :limit OFFSET :offset");
+        
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+    }
+    
+    $allQuizzes = $stmt->fetchAll();
+    $totalPages = ceil($totalRecords / $limit);
+    
+} catch (Exception $e) {
+    $allQuizzes = [];
+    $totalPages = 0;
+    error_log("Failed to fetch quizzes: " . $e->getMessage());
+}
 
-$categories = ['All Categories', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'History', 'English', 'Technology', 'Languages', 'Arts', 'Science'];
-$difficultyLevels = ['All Levels', 'Beginner', 'Intermediate', 'Advanced'];
-$statusTypes = ['All Status', 'Active', 'Draft', 'Archived'];
-
-$dashboardTitle = ucfirst($userRole) . " Dashboard";
-
-// Get current page from URL parameter, default to dashboard
-$currentPage = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
+// -----------------------
+// FETCH CATEGORY STATISTICS
+// -----------------------
+try {
+    $catStmt = $pdo->query("SELECT category, COUNT(*) as count FROM quizzes GROUP BY category");
+    $categoryStats = $catStmt->fetchAll();
+    $totalQuizCount = array_sum(array_column($categoryStats, 'count'));
+} catch (Exception $e) {
+    $categoryStats = [];
+    $totalQuizCount = 0;
+}
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

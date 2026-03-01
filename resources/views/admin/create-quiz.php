@@ -1,15 +1,12 @@
 <?php
 session_start();
 
-// Check if user is authenticated and is admin
-if (!isset($_SESSION['admin_id'])) {
+// Check if user is authenticated and has teacher or admin role
+if (!isset($_SESSION['user_id'])) {
     header('Location: /login.php');
     exit();
-}elseif ($_SESSION['role'] !== 'teacher') {
+} elseif (!in_array($_SESSION['role'] ?? '', ['teacher', 'admin'])) {
     $_SESSION['error'] = "Unauthorized access!";
-    header('Location: /login.php');
-    exit();
-}else {
     header('Location: /login.php');
     exit();
 }
@@ -19,10 +16,10 @@ $message = '';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $quiz_title = trim($_POST['quiz_title'] ?? '');
-    $quiz_description = trim($_POST['quiz_description'] ?? '');
-    $quiz_duration = (int)($_POST['quiz_duration'] ?? 0);
-    $passing_score = (int)($_POST['passing_score'] ?? 0);
+    $quiz_title = trim(isset($_POST['quiz_title']) ? $_POST['quiz_title'] : '');
+    $quiz_description = trim(isset($_POST['quiz_description']) ? $_POST['quiz_description'] : '');
+    $quiz_duration = (int)(isset($_POST['quiz_duration']) ? $_POST['quiz_duration'] : 0);
+    $passing_score = (int)(isset($_POST['passing_score']) ? $_POST['passing_score'] : 0);
     
     if (empty($quiz_title) || empty($quiz_description) || $quiz_duration <= 0) {
         $error = 'Please fill in all required fields.';
